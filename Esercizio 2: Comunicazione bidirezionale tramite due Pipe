@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <ctype.h>
+#include <sys/wait.h>
+
+struct Messaggio {
+    char testo[50];
+    int num_vocali;
+};
+
+int main() {
+    int fd1[2];
+    int fd2[2];
+
+    if (pipe(fd1) == -1) {
+        perror("Errore nella pipe 1");
+        exit(1);
+    }
+
+    if (pipe(fd2) == -1) {
+        perror("Errore nella pipe 2");
+        exit(1);
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("Errore nel fork");
+        exit(1);
+    }
+
+    if (pid > 0) { 
+        close(fd1[0]);
+        close(fd2[1]);
+        char emozione[50] = "";
+        
+        printf("Inserisci l'emozione che ti rappresenta ora: ");
+        fgets(emozione, sizeof(emozione), stdin);
+        
+        emozione[strcspn(emozione, "\n")] = '\0';
+
+        write(fd1[1], emozione, sizeof(emozione));
+        close(fd1[1]);
+
+        struct Messaggio msg_ricevuto;
+        read(fd2[0], &msg_ricevuto, sizeof(struct Messaggio));
+        close(fd2[0]);
+
+        wait(NULL);
+
+        printf("Stringa in maiuscolo: %s\n", msg_ricevuto.testo);
+        printf("Il numero delle vocali contenute nella tua emozione è di: %d\n", msg_ricevuto.num_vocali);
+
+    } else { 
+        close(fd1[1]);
+        close(fd2[0]);
+
+        char emozione[50] = "";
+
+        read(fd1[0], emozione, sizeof(emozione));
+        close(fd1[0]);
+
+        int somma_vocali = 0;
+
+        for (int i = 0; emozione[i] != '\0'; i++) {
+            emozione[i] = toupper(emozione[i]);
+            
+            if (emozione[i] == 'A' || emozione[i] == 'E' || emozione[i] == 'I' || 
+                emozione[i] == 'O' || emozione[i] == 'U') {
+                somma_vocali++;
+            }
+        }
+
+        struct Messaggio msg;
+        strcpy(msg.testo, emozione);
+        msg.num_vocali = somma_vocali;
+        write(fd2[1], &msg, sizeof(struct Messaggio));
+        close(fd2[1]);
+
+        exit(0);
+    }
+    return 0;
+}
+
