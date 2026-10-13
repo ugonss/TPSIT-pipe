@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+int main(void) {
+    int arr[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    int fd[2];
+
+    if (pipe(fd) == -1) {
+        perror("pipe");
+        exit(1);
+    }
+    
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        close(fd[0]);                    
+
+        int somma_pari = 0;
+        for (int i = 0; i < 10; i++) {
+            if (arr[i] % 2 == 0)
+                somma_pari += arr[i];
+        }
+
+        write(fd[1], &somma_pari, sizeof(somma_pari));
+        close(fd[1]);                    
+        exit(0);
+    }
+
+    
+    close(fd[1]);                          
+
+    int somma_dispari = 0;
+    for (int i = 0; i < 10; i++) {
+        if (arr[i] % 2 != 0)
+            somma_dispari += arr[i];
+    }
+
+    int somma_pari;
+    read(fd[0], &somma_pari, sizeof(somma_pari));
+    close(fd[0]);
+
+    wait(NULL);
+
+    printf("Somma dei numeri pari calcolata dal figlio: %d\n", somma_pari);
+    printf("Somma dei numeri dispari calcolata dal padre: %d\n", somma_dispari);
+    printf("Somma totale complessiva: %d\n", somma_pari + somma_dispari);
+
+    return 0;
+}
